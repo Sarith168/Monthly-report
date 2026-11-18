@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOE • KADS Monthly Report</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Chart.js DataLabels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <!-- SheetJS for Monthly File Upload -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Top Header Bar -->
+    <header class="theme-header text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center font-extrabold text-lg border border-white/30 shadow-inner">
+                    K
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1 class="text-lg sm:text-xl font-bold tracking-wide">SOE • KADS Monthly report</h1>
+                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 uppercase tracking-wider">Performance</span>
+                        <!-- Firebase Sync Status Pill -->
+                        <span id="firebaseSyncStatus" class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-black/20 text-orange-50 border border-white/20">
+                            <span class="w-2 h-2 rounded-full bg-amber-300 animate-pulse"></span>
+                            Connecting to Cloud...
+                        </span>
+                    </div>
+                    <p class="text-xs text-orange-100 font-medium">Sales Operation Excellence • Operations & Task Performance Overview</p>
+                </div>
+            </div>
+
+            <!-- Upload File + Print Actions -->
+            <div class="flex items-center gap-2">
+                <label for="excelFileInput" class="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white/20 hover:bg-white/30 border border-white/40 text-white transition shadow-sm">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span id="uploadBtnText">Upload & Sync Excel</span>
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden">
+                </label>
+                <button onclick="window.print()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-800 hover:bg-slate-100 transition shadow-sm">
+                    <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                    <span>Print / PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Top Section: Row of 4 KPI & Filter Cards -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- 1. TOTAL TASK -->
+            <div class="theme-card rounded-xl p-4 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">TOTAL TASK</span>
+                    <span id="totalVsLastMonthBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700">
+                        --
+                    </span>
+                </div>
+                <div class="my-2">
+                    <div id="kpiTotalTask" class="text-2xl sm:text-3xl font-extrabold text-slate-900">0</div>
+                </div>
+                <p id="kpiTotalCompareDesc" class="text-xs text-slate-500 font-medium">
+                    Loading cloud records...
+                </p>
+            </div>
+
+            <!-- 2. Resolve (% complete) -->
+            <div class="theme-card rounded-xl p-4 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Resolve</span>
+                    <span id="kpiResolvePctBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700">
+                        0.0%
+                    </span>
+                </div>
+                <div class="my-2 flex items-baseline gap-2">
+                    <div id="kpiResolveCount" class="text-2xl sm:text-3xl font-extrabold text-emerald-600">0</div>
+                    <span class="text-xs text-slate-400 font-medium">tasks solved</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <div id="kpiResolveBar" class="bg-emerald-500 h-1.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 3. Pending (% Pending) - Red Accent -->
+            <div class="theme-card-pending rounded-xl p-4 shadow-sm flex flex-col justify-between bg-rose-50/20">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-rose-600">Pending</span>
+                    <span id="kpiPendingPctBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700">
+                        0.0%
+                    </span>
+                </div>
+                <div class="my-2 flex items-baseline gap-2">
+                    <div id="kpiPendingCount" class="text-2xl sm:text-3xl font-extrabold text-rose-600">0</div>
+                    <span class="text-xs text-rose-400 font-medium">in progress</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <div id="kpiPendingBar" class="bg-rose-500 h-1.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 4. Filter by month (create date) -->
+            <div class="theme-card rounded-xl p-4 shadow-sm flex flex-col justify-between bg-slate-50/50">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Filter by month</span>
+                    <button id="btnResetMonth" class="text-[11px] text-[#F37021] font-semibold hover:underline">Reset</button>
+                </div>
+                <div>
+                    <label for="monthFilterSelect" class="block text-[11px] text-slate-400 mb-1">(create date)</label>
+                    <select id="monthFilterSelect" class="w-full px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-[#F37021]/30 focus:border-[#F37021] outline-none">
+                        <option value="ALL">All Time Records</option>
+                    </select>
+                </div>
+                <p id="filterActiveLabel" class="text-[11px] text-slate-400 mt-1 truncate">
+                    Checking Firestore...
+                </p>
+            </div>
+
+        </section>
+
+        <!-- Middle Section: 3 Columns Grid -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            
+            <!-- Box 1: Work load by Label (Line chart with No Grid Lines) -->
+            <div class="lg:col-span-6 bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900">Work load by Label (Main Module)</h2>
+                        <p class="text-xs text-slate-400" id="moduleChartSubtitle">Total cases per main module</p>
+                    </div>
+                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-orange-50 text-[#F37021]">Line Chart</span>
+                </div>
+                <div class="chart-container-lg">
+                    <canvas id="workloadModuleChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Box 2: Priority job (-Medium %, -Important %, -Urgent %) -->
+            <div class="lg:col-span-3 bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="mb-2">
+                    <h2 class="text-sm font-bold text-slate-900">Priority job</h2>
+                    <p class="text-xs text-slate-400">Breakdown by urgency</p>
+                </div>
+                
+                <div class="chart-container-sm my-auto">
+                    <canvas id="priorityChart"></canvas>
+                </div>
+
+                <!-- Priority % Details -->
+                <div class="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-slate-100 text-xs text-center">
+                    <div class="p-1.5 rounded bg-slate-50">
+                        <span class="block text-slate-400 font-medium">Medium</span>
+                        <span id="priorityMediumPct" class="font-bold text-slate-800">0%</span>
+                    </div>
+                    <div class="p-1.5 rounded bg-orange-50/60">
+                        <span class="block text-orange-500 font-medium">Important</span>
+                        <span id="priorityImportantPct" class="font-bold text-orange-700">0%</span>
+                    </div>
+                    <div class="p-1.5 rounded bg-rose-50/60">
+                        <span class="block text-rose-500 font-medium">Urgent</span>
+                        <span id="priorityUrgentPct" class="font-bold text-rose-700">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Box 3: Assignee performance (Donut chart with Data Labels) -->
+            <div class="lg:col-span-3 bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900">Assignee performance</h2>
+                        <p class="text-xs text-slate-400">Total cases per member</p>
+                    </div>
+                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-orange-50 text-[#F37021]">Donut Chart</span>
+                </div>
+                <div class="chart-container-md my-auto">
+                    <canvas id="assigneeDonutChart"></canvas>
+                </div>
+                <div id="assigneeLegendSummary" class="flex flex-wrap items-center justify-around gap-1 text-xs pt-2 border-t border-slate-100 font-semibold text-slate-600">
+                    <span class="text-slate-400 text-xs font-normal">No data loaded</span>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Bottom Section: "Pending Task Explorer & Detail Records" -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <!-- Header Bar -->
+            <div class="theme-header text-white px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-sm font-bold tracking-wide">Pending Task Explorer & Detail Records</h2>
+                    <p class="text-xs text-orange-100">Tasks inspection table with instant search and status filters</p>
+                </div>
+
+                <!-- Table Quick Filters -->
+                <div class="flex flex-wrap items-center gap-2 text-slate-800 text-xs">
+                    <input type="text" id="tableSearchInput" placeholder="🔍 Search task / notes..." 
+                        class="px-2.5 py-1.5 rounded-lg border border-transparent focus:ring-2 focus:ring-white outline-none w-48 sm:w-56 text-xs bg-white">
+                    
+                    <select id="tableViewMode" class="px-2.5 py-1.5 rounded-lg font-semibold bg-white outline-none text-xs">
+                        <option value="PendingOnly">⚠️ Show Pending Tasks</option>
+                        <option value="ALL">📋 Show All Tasks</option>
+                        <option value="Completed">✅ Show Completed Only</option>
+                    </select>
+
+                    <select id="tableAssigneeFilter" class="px-2.5 py-1.5 rounded-lg font-medium bg-white outline-none text-xs">
+                        <option value="">All Assignees</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table Content -->
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
+                            <th class="py-3 px-4">Task Name</th>
+                            <th class="py-3 px-4">Created Date</th>
+                            <th class="py-3 px-4">Module / Label</th>
+                            <th class="py-3 px-4">Status</th>
+                            <th class="py-3 px-4">Priority</th>
+                            <th class="py-3 px-4">Assigned To</th>
+                            <th class="py-3 px-4">Due Date</th>
+                            <th class="py-3 px-4">Completed Date</th>
+                            <th class="py-3 px-4">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pendingTableBody" class="divide-y divide-slate-100 text-slate-700 font-normal">
+                        <tr>
+                            <td colspan="9" class="text-center py-12 text-slate-400 italic">
+                                <div class="flex flex-col items-center justify-center gap-2">
+                                    <i data-lucide="cloud" class="w-8 h-8 text-slate-300 animate-pulse"></i>
+                                    <span>Checking Firebase cloud storage for existing report data...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table Pagination & Footer -->
+            <div class="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+                <span id="tablePaginationInfo">Showing 0 to 0 of 0 tasks</span>
+                <div class="flex items-center gap-1.5" id="tablePaginationControls"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Application & Firebase Module Script -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
